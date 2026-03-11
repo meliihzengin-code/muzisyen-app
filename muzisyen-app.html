@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light dark">
+<title>Sahne — Müzisyen Platformu</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+/* DARK tema (varsayılan) */
+:root {
+  --bg:#0a0a0f; --surface:#13131a; --surface2:#1c1c28; --border:#2a2a3a;
+  --accent:#c8a96e; --accent2:#e8c98e; --text:#f0ede8; --text2:#9a9aaa;
+  --danger:#e05555; --success:#4caf82; --radius:14px;
+  --font-d:'Playfair Display',serif; --font-b:'DM Sans',sans-serif;
+  --html-bg:#111;
+}
+/* LIGHT tema — sadece html[data-theme=light] altında */
+html[data-theme="light"] {
+  --bg:#f5f2ee; --surface:#fff; --surface2:#ede9e3; --border:#d8d0c4;
+  --accent:#a0783a; --accent2:#b8894a; --text:#1a1612; --text2:#7a7060;
+  --danger:#cc3333; --success:#2e8a5a; --html-bg:#c8c0b8;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html{background:var(--html-bg);min-height:100vh;}
+body{
+  background:var(--bg);color:var(--text);font-family:var(--font-b);
+  min-height:100vh;overflow-x:hidden;max-width:480px;margin:0 auto;position:relative;
+}
+#loader{position:fixed;top:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;height:100vh;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:9999;}
+.loader-logo{font-family:var(--font-d);font-size:2.5rem;color:var(--accent);animation:pulse 1.5s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.screen{display:none;min-height:100vh;}
+.screen.active{display:block;}
+.overlay{display:none;position:fixed;top:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;height:100vh;background:var(--bg);z-index:200;overflow-y:auto;}
+.overlay.open{display:block;}
+nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:var(--surface);border-top:1px solid var(--border);border-left:1px solid var(--border);border-right:1px solid var(--border);display:flex;z-index:100;padding-bottom:env(safe-area-inset-bottom);}
+nav button{flex:1;padding:12px 4px;background:none;border:none;color:var(--text2);font-family:var(--font-b);font-size:.65rem;font-weight:500;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;transition:color .2s;}
+nav button svg{width:22px;height:22px;}
+nav button.active{color:var(--accent);}
+nav button span{letter-spacing:.03em;text-transform:uppercase;}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:16px 20px 8px;}
+.topbar-title{font-family:var(--font-d);font-size:1.4rem;}
+.icon-btn{background:none;border:none;color:var(--text2);cursor:pointer;padding:6px;display:flex;align-items:center;justify-content:center;border-radius:8px;}
+.overlay-header{position:sticky;top:0;background:var(--surface);border-bottom:1px solid var(--border);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;z-index:10;}
+.overlay-header-left{display:flex;align-items:center;gap:12px;}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 22px;border-radius:var(--radius);border:none;font-family:var(--font-b);font-size:.95rem;font-weight:500;cursor:pointer;transition:all .2s;text-decoration:none;}
+.btn-primary{background:var(--accent);color:#0a0a0f;}
+.btn-primary:hover{background:var(--accent2);}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text);}
+.btn-outline:hover{border-color:var(--accent);color:var(--accent);}
+.btn-block{width:100%;}
+.btn-sm{padding:8px 14px;font-size:.85rem;}
+.fg{margin-bottom:16px;}
+.fg label{display:block;font-size:.78rem;color:var(--text2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em;font-weight:500;}
+.fg input,.fg textarea,.fg select{width:100%;padding:13px 16px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-family:var(--font-b);font-size:.95rem;outline:none;transition:border-color .2s;}
+.fg input:focus,.fg textarea:focus,.fg select:focus{border-color:var(--accent);}
+.fg textarea{resize:vertical;min-height:90px;}
+.fg select{appearance:none;}
+.fg select option{background:var(--surface2);}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:12px;}
+.card-accent{border-left:3px solid var(--accent);}
+.section{padding:16px 20px 100px;}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;}
+.badge-musician{background:rgba(200,169,110,.15);color:var(--accent);border:1px solid rgba(200,169,110,.3);}
+.badge-organizer{background:rgba(76,175,130,.15);color:var(--success);border:1px solid rgba(76,175,130,.3);}
+.badge-available{background:rgba(76,175,130,.15);color:var(--success);}
+.badge-looking{background:rgba(200,169,110,.15);color:var(--accent);}
+.avatar{width:46px;height:46px;border-radius:50%;background:var(--surface2);border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:var(--font-d);font-size:1.1rem;color:var(--accent);overflow:hidden;flex-shrink:0;}
+.avatar-lg{width:80px;height:80px;font-size:1.8rem;}
+#screen-auth{background:radial-gradient(ellipse at top,#1a1520 0%,var(--bg) 60%);flex-direction:column;align-items:center;justify-content:center;padding:30px 24px;}
+#screen-auth.active{display:flex;}
+html[data-theme="light"] #screen-auth{background:radial-gradient(ellipse at top,#e8ddd0 0%,var(--bg) 60%);}
+.auth-logo{font-family:var(--font-d);font-size:4rem;color:var(--accent);}
+.auth-tagline{color:var(--text2);font-size:.9rem;letter-spacing:.15em;text-transform:uppercase;margin-bottom:36px;}
+.auth-box{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:26px 22px;width:100%;max-width:400px;}
+.auth-tabs{display:flex;background:var(--surface2);border-radius:10px;padding:4px;margin-bottom:22px;}
+.auth-tab{flex:1;padding:9px;text-align:center;border-radius:8px;cursor:pointer;font-size:.9rem;font-weight:500;color:var(--text2);transition:all .2s;border:none;background:none;font-family:var(--font-b);}
+.auth-tab.active{background:var(--accent);color:#0a0a0f;}
+.profile-header{background:linear-gradient(180deg,#1a1520 0%,var(--bg) 100%);padding:28px 20px 22px;text-align:center;position:relative;}
+html[data-theme="light"] .profile-header{background:linear-gradient(180deg,#e0d4c4 0%,var(--bg) 100%);}
+.profile-name{font-family:var(--font-d);font-size:1.8rem;margin-top:12px;}
+.profile-city{color:var(--text2);font-size:.9rem;margin-top:4px;}
+.listing-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px;}
+.tabs{display:flex;background:var(--surface2);border-radius:10px;padding:4px;margin-bottom:18px;}
+.tab{flex:1;padding:9px;text-align:center;border-radius:8px;cursor:pointer;font-size:.85rem;font-weight:500;color:var(--text2);transition:all .2s;border:none;background:none;font-family:var(--font-b);}
+.tab.active{background:var(--surface);color:var(--text);}
+.type-select{display:flex;gap:12px;}
+.type-option{flex:1;padding:14px 8px;background:var(--surface2);border:2px solid var(--border);border-radius:var(--radius);text-align:center;cursor:pointer;transition:all .2s;}
+.type-option.selected{border-color:var(--accent);background:rgba(200,169,110,.08);}
+.type-option-icon{font-size:1.8rem;margin-bottom:6px;}
+.type-option-label{font-size:.85rem;font-weight:600;}
+.type-option-desc{font-size:.72rem;color:var(--text2);margin-top:2px;}
+.conv-item{display:flex;gap:14px;padding:16px 20px;border-bottom:1px solid var(--border);cursor:pointer;align-items:center;}
+.conv-item:active{background:var(--surface);}
+.conv-info{flex:1;min-width:0;}
+.conv-name{font-weight:600;font-size:.95rem;}
+.conv-preview{font-size:.82rem;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px;}
+.chat-header{position:sticky;top:0;background:var(--surface);border-bottom:1px solid var(--border);padding:12px 16px;display:flex;align-items:center;gap:12px;z-index:10;}
+.chat-msgs{padding:16px;padding-bottom:80px;display:flex;flex-direction:column;gap:8px;}
+.msg{max-width:78%;padding:11px 14px;border-radius:14px;font-size:.9rem;line-height:1.5;}
+.msg-out{background:var(--accent);color:#0a0a0f;align-self:flex-end;border-bottom-right-radius:4px;}
+.msg-in{background:var(--surface2);color:var(--text);align-self:flex-start;border-bottom-left-radius:4px;}
+.msg-time{font-size:.65rem;opacity:.6;margin-top:3px;text-align:right;}
+.chat-input-wrap{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;padding:10px 14px;background:var(--surface);border-top:1px solid var(--border);display:flex;gap:10px;padding-bottom:calc(10px + env(safe-area-inset-bottom));z-index:10;}
+.chat-input{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:24px;padding:11px 16px;color:var(--text);font-family:var(--font-b);font-size:.9rem;outline:none;}
+.chat-send{width:42px;height:42px;background:var(--accent);border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.modal-overlay{position:fixed;top:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;height:100vh;background:rgba(0,0,0,.7);z-index:400;display:flex;align-items:flex-end;opacity:0;pointer-events:none;transition:opacity .3s;}
+.modal-overlay.open{opacity:1;pointer-events:all;}
+.modal{background:var(--surface);border-radius:20px 20px 0 0;width:100%;max-height:90vh;overflow-y:auto;padding:26px 22px;transform:translateY(100%);transition:transform .3s;padding-bottom:calc(26px + env(safe-area-inset-bottom));}
+.modal-overlay.open .modal{transform:translateY(0);}
+.modal-handle{width:40px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 18px;}
+.modal-title{font-family:var(--font-d);font-size:1.4rem;margin-bottom:18px;}
+#toast{position:fixed;top:20px;left:50%;transform:translateX(-50%) translateY(-120px);background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:11px 22px;font-size:.88rem;z-index:9999;transition:transform .3s;white-space:nowrap;}
+#toast.show{transform:translateX(-50%) translateY(0);}
+#toast.success{border-color:var(--success);color:var(--success);}
+#toast.error{border-color:var(--danger);color:var(--danger);}
+.divider{text-align:center;color:var(--text2);font-size:.8rem;margin:14px 0;display:flex;align-items:center;gap:10px;}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border);}
+.empty{text-align:center;padding:60px 20px;color:var(--text2);}
+.empty-icon{font-size:3rem;margin-bottom:14px;opacity:.4;}
+.admin-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:22px;}
+.admin-stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;text-align:center;}
+.admin-stat-num{font-family:var(--font-d);font-size:2.2rem;color:var(--accent);}
+.admin-stat-label{color:var(--text2);font-size:.8rem;margin-top:4px;}
+.admin-tabs{display:flex;gap:8px;overflow-x:auto;padding:0 20px 14px;scrollbar-width:none;}
+.admin-tabs::-webkit-scrollbar{display:none;}
+.admin-tab{padding:7px 14px;border-radius:20px;border:1px solid var(--border);background:none;color:var(--text2);font-family:var(--font-b);font-size:.82rem;cursor:pointer;white-space:nowrap;transition:all .2s;}
+.admin-tab.active{background:var(--accent);border-color:var(--accent);color:#0a0a0f;font-weight:600;}
+.notif-dot{position:absolute;top:6px;right:calc(50% - 18px);width:8px;height:8px;background:var(--danger);border-radius:50%;}
+.unread-count{width:18px;height:18px;background:var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;color:#0a0a0f;font-weight:700;}
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.fade-in{animation:fadeIn .3s ease forwards;}
+</style>
+</head>
+<body>
+
+<div id="loader"><div class="loader-logo">Sahne</div></div>
+<div id="toast"></div>
+
+<!-- AUTH -->
+<div id="screen-auth" class="screen">
+  <div class="auth-logo">Sahne</div>
+  <div class="auth-tagline">Müzisyen Platformu</div>
+  <div class="auth-box">
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="switchAuthTab('login')">Giriş Yap</button>
+      <button class="auth-tab" onclick="switchAuthTab('register')">Kayıt Ol</button>
+    </div>
+    <div id="auth-login">
+      <div class="fg"><label>E-posta</label><input type="email" id="login-email" placeholder="sen@ornek.com"></div>
+      <div class="fg"><label>Şifre</label><input type="password" id="login-password" placeholder="••••••••"></div>
+      <button class="btn btn-primary btn-block" onclick="doLogin()">Giriş Yap</button>
+      <div class="divider">veya</div>
+      <button class="btn btn-outline btn-block" onclick="switchAuthTab('register')">Hesap Oluştur</button>
+    </div>
+    <div id="auth-register" style="display:none">
+      <div class="fg">
+        <label>Kullanıcı Tipi</label>
+        <div class="type-select">
+          <div class="type-option selected" id="type-musician" onclick="selectType('musician')">
+            <div class="type-option-icon">🎸</div><div class="type-option-label">Müzisyen</div><div class="type-option-desc">Profil, ilan ver</div>
+          </div>
+          <div class="type-option" id="type-organizer" onclick="selectType('organizer')">
+            <div class="type-option-icon">🎪</div><div class="type-option-label">Organizatör</div><div class="type-option-desc">Müzisyen bul</div>
+          </div>
+        </div>
+      </div>
+      <div class="fg"><label>Ad Soyad</label><input type="text" id="reg-name" placeholder="Adın Soyadın"></div>
+      <div class="fg"><label>E-posta</label><input type="email" id="reg-email" placeholder="sen@ornek.com"></div>
+      <div class="fg"><label>Şifre</label><input type="password" id="reg-password" placeholder="En az 6 karakter"></div>
+      <button class="btn btn-primary btn-block" onclick="doRegister()">Kayıt Ol</button>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="screen-app" class="screen">
+  <nav>
+    <button class="active" onclick="showTab('discover')" id="nav-discover">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg><span>Keşfet</span>
+    </button>
+    <button onclick="showTab('listings')" id="nav-listings">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><span>İlanlar</span>
+    </button>
+    <button onclick="showTab('messages')" id="nav-messages" style="position:relative">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span>Mesajlar</span>
+      <div class="notif-dot" id="msg-badge" style="display:none"></div>
+    </button>
+    <button onclick="showTab('profile')" id="nav-profile">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>Profil</span>
+    </button>
+    <button onclick="toggleTheme()" id="nav-theme">
+      <span id="theme-icon" style="font-size:1.3rem;line-height:1">🌙</span>
+      <span>Tema</span>
+    </button>
+  </nav>
+
+  <!-- DISCOVER -->
+  <div id="tab-discover" class="tab-content">
+    <div class="topbar">
+      <div class="topbar-title">Keşfet</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button class="icon-btn" onclick="loadDiscover()"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
+        <select id="filter-city" onchange="loadDiscover()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:8px;font-family:var(--font-b);font-size:.82rem;outline:none;appearance:none;">
+          <option value="">Tüm Şehirler</option><option>İstanbul</option><option>Ankara</option><option>İzmir</option><option>Bursa</option><option>Antalya</option><option>Diğer</option>
+        </select>
+      </div>
+    </div>
+    <div class="section" style="padding-top:8px">
+      <div class="tabs">
+        <button class="tab active" onclick="switchDiscoverTab('musicians')">Müzisyenler</button>
+        <button class="tab" onclick="switchDiscoverTab('organizers')">Organizatörler</button>
+      </div>
+      <div style="position:relative;margin-bottom:16px">
+        <svg style="position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--text2);pointer-events:none" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input style="width:100%;padding:12px 14px 12px 40px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-family:var(--font-b);font-size:.9rem;outline:none;" id="search-input" placeholder="İsim veya enstrüman ara..." oninput="loadDiscover()">
+      </div>
+      <div id="discover-list"></div>
+    </div>
+  </div>
+
+  <!-- LISTINGS -->
+  <div id="tab-listings" class="tab-content" style="display:none">
+    <div class="topbar">
+      <div class="topbar-title">İlanlar</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button class="icon-btn" onclick="loadListings()"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
+        <button class="btn btn-primary btn-sm" onclick="openModal('modal-listing')">+ İlan</button>
+      </div>
+    </div>
+    <div class="section" style="padding-top:8px">
+      <div class="tabs">
+        <button class="tab active" onclick="switchListingTab('all')">Tümü</button>
+        <button class="tab" onclick="switchListingTab('available')">Müsait</button>
+        <button class="tab" onclick="switchListingTab('looking')">Arıyor</button>
+      </div>
+      <div id="listings-list"></div>
+    </div>
+  </div>
+
+  <!-- MESSAGES -->
+  <div id="tab-messages" class="tab-content" style="display:none">
+    <div class="topbar">
+      <div class="topbar-title">Mesajlar</div>
+      <button class="icon-btn" onclick="loadConversations()"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
+    </div>
+    <div id="conversations-list" style="padding-bottom:80px"></div>
+  </div>
+
+  <!-- PROFILE -->
+  <div id="tab-profile" class="tab-content" style="display:none">
+    <div class="topbar">
+      <div class="topbar-title">Profilim</div>
+      <button class="icon-btn" onclick="refreshMyProfile()"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
+    </div>
+    <div id="profile-view"></div>
+  </div>
+</div>
+
+<!-- CHAT OVERLAY -->
+<div id="overlay-chat" class="overlay" style="z-index:250">
+  <div class="chat-header">
+    <button class="icon-btn" onclick="closeChat()" style="color:var(--text)"><svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 12H5m7-7-7 7 7 7"/></svg></button>
+    <div class="avatar" id="chat-avatar"></div>
+    <div style="flex:1"><div id="chat-name" style="font-weight:600"></div><div id="chat-type" style="font-size:.75rem;color:var(--text2)"></div></div>
+    <button class="icon-btn" onclick="loadMessages()"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
+  </div>
+  <div class="chat-msgs" id="chat-messages"></div>
+  <div class="chat-input-wrap">
+    <input class="chat-input" id="chat-input" placeholder="Mesaj yaz..." onkeydown="if(event.key==='Enter')sendMessage()">
+    <button class="chat-send" onclick="sendMessage()"><svg width="18" height="18" fill="none" stroke="#0a0a0f" stroke-width="2.5" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
+  </div>
+</div>
+
+<!-- PROFILE DETAIL OVERLAY -->
+<div id="overlay-profile" class="overlay">
+  <div class="overlay-header">
+    <div class="overlay-header-left">
+      <button class="icon-btn" onclick="closeOverlay('overlay-profile')" style="color:var(--text)"><svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 12H5m7-7-7 7 7 7"/></svg></button>
+      <span style="font-weight:600">Profil</span>
+    </div>
+    <button class="icon-btn" onclick="refreshProfileDetail()"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
+  </div>
+  <div id="profile-detail-content"></div>
+</div>
+
+<!-- ADMIN OVERLAY -->
+<div id="overlay-admin" class="overlay" style="z-index:220">
+  <div class="overlay-header" style="background:var(--surface)">
+    <div class="overlay-header-left">
+      <button class="icon-btn" onclick="closeOverlay('overlay-admin')" style="color:var(--text)"><svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 12H5m7-7-7 7 7 7"/></svg></button>
+      <div style="font-family:var(--font-d);font-size:1.2rem">Admin <span style="color:var(--accent)">Paneli</span></div>
+    </div>
+    <button class="icon-btn" onclick="loadAdminContent(currentAdminTab)"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
+  </div>
+  <div class="admin-tabs">
+    <button class="admin-tab active" onclick="switchAdminTab('stats')">📊 Genel</button>
+    <button class="admin-tab" onclick="switchAdminTab('users')">👥 Kullanıcılar</button>
+    <button class="admin-tab" onclick="switchAdminTab('listings')">📋 İlanlar</button>
+    <button class="admin-tab" onclick="switchAdminTab('messages')">💬 Mesajlar</button>
+  </div>
+  <div id="admin-content" style="padding:0 20px 40px"></div>
+</div>
+
+<!-- MODAL: İlan -->
+<div class="modal-overlay" id="modal-listing" onclick="if(event.target===this)closeModal('modal-listing')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Yeni İlan</div>
+    <div class="fg"><label>Tip</label>
+      <div class="tabs">
+        <button class="tab active" id="ltype-available" onclick="selectListingType('available')">🎵 Müsaitim</button>
+        <button class="tab" id="ltype-looking" onclick="selectListingType('looking')">🔍 Arıyorum</button>
+      </div>
+    </div>
+    <div class="fg"><label>Başlık</label><input type="text" id="listing-title" placeholder="Örn: Cumartesi keman çalabilirim"></div>
+    <div class="fg"><label>Tarih</label><input type="date" id="listing-date"></div>
+    <div class="fg"><label>Şehir</label><select id="listing-city"><option value="">Şehir Seç</option><option>İstanbul</option><option>Ankara</option><option>İzmir</option><option>Bursa</option><option>Antalya</option><option>Diğer</option></select></div>
+    <div class="fg"><label>Müzik Türü</label><input type="text" id="listing-genre" placeholder="Caz, Rock, Klasik..."></div>
+    <div class="fg"><label>Bütçe</label><input type="text" id="listing-budget" placeholder="500₺, Anlaşılır..."></div>
+    <div class="fg"><label>Açıklama</label><textarea id="listing-desc" placeholder="Detaylar..."></textarea></div>
+    <button class="btn btn-primary btn-block" onclick="submitListing()">Yayınla</button>
+  </div>
+</div>
+
+<!-- MODAL: Profil -->
+<div class="modal-overlay" id="modal-profile" onclick="if(event.target===this)closeModal('modal-profile')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Profili Düzenle</div>
+    <div class="fg"><label>Ad Soyad</label><input type="text" id="edit-name"></div>
+    <div class="fg"><label>Şehir</label><select id="edit-city"><option value="">Şehir Seç</option><option>İstanbul</option><option>Ankara</option><option>İzmir</option><option>Bursa</option><option>Antalya</option><option>Diğer</option></select></div>
+    <div class="fg"><label>Enstrüman</label><input type="text" id="edit-instrument" placeholder="Keman, Gitar, Piyano..."></div>
+    <div class="fg"><label>Okul / Eğitim</label><input type="text" id="edit-school" placeholder="İTÜ TMDK..."></div>
+    <div class="fg"><label>Çalıştığı Mekanlar</label><textarea id="edit-venues" placeholder="Babylon, IF Performance Hall..."></textarea></div>
+    <div class="fg"><label>Hakkında</label><textarea id="edit-bio" placeholder="Kendini anlat..."></textarea></div>
+    <div class="fg"><label>Telefon</label><input type="tel" id="edit-phone" placeholder="05XX XXX XX XX"></div>
+    <div class="fg"><label>Video URL</label><input type="url" id="edit-video" placeholder="https://youtube.com/..."></div>
+    <div class="fg"><label>Ses Kaydı URL</label><input type="url" id="edit-audio" placeholder="https://soundcloud.com/..."></div>
+    <button class="btn btn-primary btn-block" onclick="saveProfile()">Kaydet</button>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://xhkepzepsrsailoopvfv.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_Y1q0jTSRrTSafEIVbfxoYg_ZOlbwCmu';
+const ADMIN_EMAIL  = 'meliihzengin@gmail.com';
+const { createClient } = supabase;
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let currentUser=null, currentProfile=null;
+let selectedUserType='musician', selectedListingType='available';
+let currentDiscoverTab='musicians', currentListingFilter='all';
+let activeChatUserId=null, activeChatPartner=null;
+let chatPollInterval=null, unreadInterval=null;
+let currentDetailUserId=null, currentAdminTab='stats';
+
+async function init() {
+  const { data:{ session } } = await sb.auth.getSession();
+  if (session) { currentUser=session.user; await loadCurrentProfile(); showApp(); }
+  else showScreen('auth');
+  document.getElementById('loader').style.display='none';
+}
+async function loadCurrentProfile() {
+  const { data } = await sb.from('profiles').select('*').eq('id',currentUser.id).single();
+  currentProfile = data;
+}
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('screen-'+name).classList.add('active');
+}
+function showApp() {
+  showScreen('app'); showTab('discover');
+  if (unreadInterval) clearInterval(unreadInterval);
+  unreadInterval = setInterval(checkUnread,12000);
+  checkUnread();
+}
+function openOverlay(id)  { document.getElementById(id).classList.add('open'); }
+function closeOverlay(id) { document.getElementById(id).classList.remove('open'); }
+function showTab(tab) {
+  document.querySelectorAll('.tab-content').forEach(t=>t.style.display='none');
+  document.getElementById('tab-'+tab).style.display='block';
+  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+  document.getElementById('nav-'+tab).classList.add('active');
+  if(tab==='discover') loadDiscover();
+  if(tab==='listings') loadListings();
+  if(tab==='messages') loadConversations();
+  if(tab==='profile')  renderMyProfile();
+}
+function switchAuthTab(tab) {
+  document.getElementById('auth-login').style.display    = tab==='login'    ? 'block':'none';
+  document.getElementById('auth-register').style.display = tab==='register' ? 'block':'none';
+  document.querySelectorAll('.auth-tab').forEach((t,i)=>t.classList.toggle('active',(i===0&&tab==='login')||(i===1&&tab==='register')));
+}
+function selectType(type) {
+  selectedUserType=type;
+  document.getElementById('type-musician').classList.toggle('selected',type==='musician');
+  document.getElementById('type-organizer').classList.toggle('selected',type==='organizer');
+}
+async function doLogin() {
+  const email=document.getElementById('login-email').value.trim();
+  const password=document.getElementById('login-password').value;
+  if(!email||!password) return toast('Tüm alanları doldur','error');
+  const {data,error}=await sb.auth.signInWithPassword({email,password});
+  if(error) return toast('Hata: '+error.message,'error');
+  currentUser=data.user; await loadCurrentProfile();
+  toast('Hoş geldin! 🎵','success'); setTimeout(showApp,800);
+}
+async function doRegister() {
+  const name=document.getElementById('reg-name').value.trim();
+  const email=document.getElementById('reg-email').value.trim();
+  const password=document.getElementById('reg-password').value;
+  if(!name||!email||!password) return toast('Tüm alanları doldur','error');
+  if(password.length<6) return toast('Şifre en az 6 karakter','error');
+  const {data,error}=await sb.auth.signUp({email,password});
+  if(error) return toast('Hata: '+error.message,'error');
+  currentUser=data.user;
+  await sb.from('profiles').insert({id:currentUser.id,full_name:name,user_type:selectedUserType});
+  await loadCurrentProfile();
+  toast('Kayıt başarılı! Hoş geldin '+name+' 🎵','success'); setTimeout(showApp,1000);
+}
+async function doLogout() {
+  await sb.auth.signOut(); currentUser=null; currentProfile=null;
+  if(chatPollInterval) clearInterval(chatPollInterval);
+  if(unreadInterval)   clearInterval(unreadInterval);
+  showScreen('auth');
+}
+function ini(name) { return (name||'?').split(' ').map(n=>n[0]||'').join('').slice(0,2).toUpperCase(); }
+
+// DISCOVER
+async function loadDiscover() {
+  const list=document.getElementById('discover-list');
+  list.innerHTML='<div style="text-align:center;padding:40px;color:var(--text2)">Yükleniyor...</div>';
+  const search=(document.getElementById('search-input')?.value||'').toLowerCase();
+  const city=document.getElementById('filter-city')?.value||'';
+  const type=currentDiscoverTab==='musicians'?'musician':'organizer';
+  let q=sb.from('profiles').select('*').eq('user_type',type);
+  if(currentUser) q=q.neq('id',currentUser.id);
+  if(city) q=q.eq('city',city);
+  const {data}=await q;
+  let profiles=data||[];
+  if(search) profiles=profiles.filter(p=>(p.full_name||'').toLowerCase().includes(search)||(p.instrument||'').toLowerCase().includes(search));
+  if(!profiles.length){list.innerHTML='<div class="empty"><div class="empty-icon">🎵</div><p>Henüz kimse yok</p></div>';return;}
+  list.innerHTML=profiles.map(p=>`<div class="listing-card fade-in" onclick="openProfileDetail('${p.id}')" style="cursor:pointer">
+    <div style="display:flex;gap:12px;align-items:center">
+      <div class="avatar">${ini(p.full_name)}</div>
+      <div style="flex:1">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span style="font-weight:600">${p.full_name||'İsimsiz'}</span>
+          <span class="badge ${p.user_type==='musician'?'badge-musician':'badge-organizer'}">${p.user_type==='musician'?'🎸 Müzisyen':'🎪 Organizatör'}</span>
+        </div>
+        ${p.instrument?`<div style="font-size:.8rem;color:var(--accent);margin-top:2px">🎵 ${p.instrument}</div>`:''}
+        ${p.city?`<div style="font-size:.78rem;color:var(--text2)">📍 ${p.city}</div>`:''}
+      </div>
+    </div>
+    ${p.bio?`<div style="font-size:.83rem;color:var(--text2);margin-top:8px;line-height:1.5">${p.bio.slice(0,90)}${p.bio.length>90?'...':''}</div>`:''}
+  </div>`).join('');
+}
+function switchDiscoverTab(tab) {
+  currentDiscoverTab=tab;
+  document.querySelectorAll('#tab-discover .tab').forEach((t,i)=>t.classList.toggle('active',(i===0&&tab==='musicians')||(i===1&&tab==='organizers')));
+  loadDiscover();
+}
+
+// PROFILE DETAIL
+async function openProfileDetail(userId) {
+  currentDetailUserId=userId;
+  const {data:p}=await sb.from('profiles').select('*').eq('id',userId).single();
+  if(!p) return;
+  const {data:listings}=await sb.from('listings').select('*').eq('user_id',userId).eq('status','active');
+  const isOwn=currentUser&&p.id===currentUser.id;
+  document.getElementById('profile-detail-content').innerHTML=`
+    <div class="profile-header">
+      <div class="avatar avatar-lg" style="margin:0 auto">${ini(p.full_name)}</div>
+      <div class="profile-name">${p.full_name||'İsimsiz'}</div>
+      <div style="margin-top:6px"><span class="badge ${p.user_type==='musician'?'badge-musician':'badge-organizer'}">${p.user_type==='musician'?'🎸 Müzisyen':'🎪 Organizatör'}</span></div>
+      ${p.city?`<div class="profile-city">📍 ${p.city}</div>`:''}
+    </div>
+    <div style="padding:18px;padding-bottom:30px">
+      ${p.instrument?`<div class="card card-accent"><div style="font-size:.72rem;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Enstrüman</div><div style="font-weight:500">🎵 ${p.instrument}</div></div>`:''}
+      ${p.school?`<div class="card"><div style="font-size:.72rem;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Eğitim</div><div>🎓 ${p.school}</div></div>`:''}
+      ${p.venues_worked?`<div class="card"><div style="font-size:.72rem;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Çalıştığı Mekanlar</div><div style="font-size:.88rem;line-height:1.6">🏛️ ${p.venues_worked}</div></div>`:''}
+      ${p.bio?`<div class="card"><div style="font-size:.72rem;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Hakkında</div><div style="font-size:.88rem;line-height:1.6">${p.bio}</div></div>`:''}
+      ${p.video_url?`<div class="card"><div style="font-size:.72rem;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Video</div><a href="${p.video_url}" target="_blank" class="btn btn-outline btn-sm">▶️ İzle</a></div>`:''}
+      ${p.audio_url?`<div class="card"><div style="font-size:.72rem;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Ses Kaydı</div><a href="${p.audio_url}" target="_blank" class="btn btn-outline btn-sm">🎧 Dinle</a></div>`:''}
+      ${listings&&listings.length?`<div style="font-family:var(--font-d);font-size:1.1rem;margin:8px 0 12px">Aktif İlanlar</div>${listings.map(l=>`<div class="card card-accent"><span class="badge ${l.listing_type==='available'?'badge-available':'badge-looking'}">${l.listing_type==='available'?'Müsait':'Arıyor'}</span><div style="font-weight:600;margin-top:6px">${l.title}</div>${l.date?`<div style="font-size:.78rem;color:var(--text2);margin-top:3px">📅 ${new Date(l.date).toLocaleDateString('tr-TR')}</div>`:''}</div>`).join('')}`:''}
+      ${!isOwn?`<div style="margin-top:12px;display:flex;gap:10px"><button class="btn btn-primary" style="flex:1" onclick="startChat('${p.id}')">💬 Mesaj Gönder</button>${p.phone?`<a href="tel:${p.phone}" class="btn btn-outline">📞</a>`:''}</div>`:''}
+    </div>`;
+  openOverlay('overlay-profile');
+}
+async function refreshProfileDetail() { if(currentDetailUserId) await openProfileDetail(currentDetailUserId); }
+
+// MY PROFILE
+function renderMyProfile() {
+  if(!currentProfile) return;
+  const p=currentProfile; const isAdmin=currentUser?.email===ADMIN_EMAIL;
+  document.getElementById('profile-view').innerHTML=`
+    <div class="profile-header">
+      ${isAdmin?`<button onclick="openOverlay('overlay-admin')" style="position:absolute;right:16px;top:16px;background:var(--danger);border:none;color:#fff;padding:6px 12px;border-radius:8px;font-size:.75rem;cursor:pointer;font-family:var(--font-b)">⚙️ Admin</button>`:''}
+      <div class="avatar avatar-lg" style="margin:0 auto">${ini(p.full_name)}</div>
+      <div class="profile-name">${p.full_name||'İsimsiz'}</div>
+      <div style="margin-top:6px"><span class="badge ${p.user_type==='musician'?'badge-musician':'badge-organizer'}">${p.user_type==='musician'?'🎸 Müzisyen':'🎪 Organizatör'}</span></div>
+      ${p.city?`<div class="profile-city">📍 ${p.city}</div>`:''}
+    </div>
+    <div style="padding:18px;padding-bottom:100px">
+      <div style="display:flex;gap:10px;margin-bottom:18px">
+        <button class="btn btn-primary" style="flex:1" onclick="openProfileModal()">✏️ Düzenle</button>
+        <button class="btn btn-outline btn-sm" onclick="doLogout()">Çıkış</button>
+      </div>
+      ${p.instrument?`<div class="card card-accent"><div style="font-size:.72rem;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Enstrüman</div><div style="font-weight:500">🎵 ${p.instrument}</div></div>`:'<div class="card" style="text-align:center;color:var(--text2);font-size:.85rem;padding:22px">Profil bilgilerini tamamla 👆</div>'}
+      ${p.school?`<div class="card"><div style="font-size:.72rem;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Eğitim</div><div>🎓 ${p.school}</div></div>`:''}
+      ${p.venues_worked?`<div class="card"><div style="font-size:.72rem;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Çalıştığı Mekanlar</div><div style="font-size:.88rem;line-height:1.6">🏛️ ${p.venues_worked}</div></div>`:''}
+      ${p.bio?`<div class="card"><div style="font-size:.72rem;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Hakkında</div><div style="font-size:.88rem;line-height:1.6">${p.bio}</div></div>`:''}
+      ${p.video_url?`<div class="card"><div style="font-size:.72rem;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Video</div><a href="${p.video_url}" target="_blank" class="btn btn-outline btn-sm">▶️ İzle</a></div>`:''}
+      ${p.audio_url?`<div class="card"><div style="font-size:.72rem;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Ses Kaydı</div><a href="${p.audio_url}" target="_blank" class="btn btn-outline btn-sm">🎧 Dinle</a></div>`:''}
+    </div>`;
+}
+async function refreshMyProfile() { await loadCurrentProfile(); renderMyProfile(); toast('Yenilendi ✓','success'); }
+function openProfileModal() {
+  const p=currentProfile; if(!p) return;
+  document.getElementById('edit-name').value      =p.full_name||'';
+  document.getElementById('edit-city').value      =p.city||'';
+  document.getElementById('edit-instrument').value=p.instrument||'';
+  document.getElementById('edit-school').value    =p.school||'';
+  document.getElementById('edit-venues').value    =p.venues_worked||'';
+  document.getElementById('edit-bio').value       =p.bio||'';
+  document.getElementById('edit-phone').value     =p.phone||'';
+  document.getElementById('edit-video').value     =p.video_url||'';
+  document.getElementById('edit-audio').value     =p.audio_url||'';
+  openModal('modal-profile');
+}
+async function saveProfile() {
+  const updates={
+    full_name:document.getElementById('edit-name').value.trim(),
+    city:document.getElementById('edit-city').value,
+    instrument:document.getElementById('edit-instrument').value.trim(),
+    school:document.getElementById('edit-school').value.trim(),
+    venues_worked:document.getElementById('edit-venues').value.trim(),
+    bio:document.getElementById('edit-bio').value.trim(),
+    phone:document.getElementById('edit-phone').value.trim(),
+    video_url:document.getElementById('edit-video').value.trim(),
+    audio_url:document.getElementById('edit-audio').value.trim(),
+  };
+  const {error}=await sb.from('profiles').update(updates).eq('id',currentUser.id);
+  if(error) return toast('Hata: '+error.message,'error');
+  await loadCurrentProfile(); closeModal('modal-profile'); renderMyProfile();
+  toast('Profil güncellendi ✓','success');
+}
+
+// LISTINGS
+async function loadListings() {
+  const list=document.getElementById('listings-list');
+  list.innerHTML='<div style="text-align:center;padding:40px;color:var(--text2)">Yükleniyor...</div>';
+  let q=sb.from('listings').select('*,profiles(full_name,user_type,instrument,city)').eq('status','active').order('created_at',{ascending:false});
+  if(currentListingFilter!=='all') q=q.eq('listing_type',currentListingFilter);
+  const {data}=await q;
+  if(!data||!data.length){list.innerHTML='<div class="empty"><div class="empty-icon">📋</div><p>Henüz ilan yok</p></div>';return;}
+  list.innerHTML=data.map(l=>{
+    const p=l.profiles; const isOwn=l.user_id===currentUser?.id;
+    return `<div class="listing-card fade-in">
+      <div style="display:flex;gap:12px;align-items:center;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--border);cursor:pointer" onclick="openProfileDetail('${l.user_id}')">
+        <div class="avatar">${ini(p?.full_name)}</div>
+        <div><div style="font-weight:600;font-size:.9rem">${p?.full_name||'İsimsiz'}</div><div style="font-size:.75rem;color:var(--text2)">${p?.instrument||(p?.user_type==='organizer'?'Organizatör':'')}</div></div>
+      </div>
+      <div style="display:flex;align-items:flex-start;justify-content:space-between">
+        <div>
+          <span class="badge ${l.listing_type==='available'?'badge-available':'badge-looking'}">${l.listing_type==='available'?'🟢 Müsait':'🔍 Arıyor'}</span>
+          <div style="font-weight:600;margin-top:6px">${l.title}</div>
+        </div>
+        ${isOwn?`<button onclick="deleteListing('${l.id}')" style="background:none;border:none;color:var(--text2);cursor:pointer">🗑️</button>`:''}
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">
+        ${l.date?`<span style="font-size:.78rem;color:var(--text2)">📅 ${new Date(l.date).toLocaleDateString('tr-TR')}</span>`:''}
+        ${l.city?`<span style="font-size:.78rem;color:var(--text2)">📍 ${l.city}</span>`:''}
+        ${l.genre?`<span style="font-size:.78rem;color:var(--text2)">🎵 ${l.genre}</span>`:''}
+        ${l.budget?`<span style="font-size:.78rem;color:var(--text2)">💰 ${l.budget}</span>`:''}
+      </div>
+      ${l.description?`<div style="font-size:.83rem;color:var(--text2);margin-top:8px;line-height:1.5">${l.description}</div>`:''}
+      ${!isOwn?`<div style="margin-top:10px"><button class="btn btn-outline btn-sm" onclick="startChat('${l.user_id}')">💬 Mesaj</button></div>`:''}
+    </div>`;
+  }).join('');
+}
+function switchListingTab(f) {
+  currentListingFilter=f;
+  document.querySelectorAll('#tab-listings .tab').forEach((t,i)=>t.classList.toggle('active',(i===0&&f==='all')||(i===1&&f==='available')||(i===2&&f==='looking')));
+  loadListings();
+}
+function selectListingType(type) {
+  selectedListingType=type;
+  document.getElementById('ltype-available').classList.toggle('active',type==='available');
+  document.getElementById('ltype-looking').classList.toggle('active',type==='looking');
+}
+async function submitListing() {
+  const title=document.getElementById('listing-title').value.trim();
+  if(!title) return toast('Başlık zorunlu','error');
+  const {error}=await sb.from('listings').insert({
+    user_id:currentUser.id,title,
+    date:document.getElementById('listing-date').value||null,
+    city:document.getElementById('listing-city').value,
+    genre:document.getElementById('listing-genre').value.trim(),
+    budget:document.getElementById('listing-budget').value.trim(),
+    description:document.getElementById('listing-desc').value.trim(),
+    listing_type:selectedListingType,status:'active'
+  });
+  if(error) return toast('Hata: '+error.message,'error');
+  closeModal('modal-listing');
+  document.getElementById('listing-title').value='';
+  document.getElementById('listing-desc').value='';
+  toast('İlan yayınlandı ✓','success'); showTab('listings');
+}
+async function deleteListing(id) {
+  if(!confirm('İlanı sil?')) return;
+  await sb.from('listings').update({status:'deleted'}).eq('id',id);
+  loadListings(); toast('İlan silindi','success');
+}
+
+// MESSAGES
+async function loadConversations() {
+  const list=document.getElementById('conversations-list');
+  list.innerHTML='<div style="text-align:center;padding:40px;color:var(--text2)">Yükleniyor...</div>';
+  const {data:msgs}=await sb.from('messages')
+    .select('*,sender:profiles!messages_sender_id_fkey(full_name,user_type),receiver:profiles!messages_receiver_id_fkey(full_name,user_type)')
+    .or(`sender_id.eq.${currentUser.id},receiver_id.eq.${currentUser.id}`)
+    .order('created_at',{ascending:false});
+  if(!msgs||!msgs.length){list.innerHTML='<div class="empty"><div class="empty-icon">💬</div><p>Henüz mesajın yok</p></div>';return;}
+  const map={};
+  msgs.forEach(m=>{
+    const pid=m.sender_id===currentUser.id?m.receiver_id:m.sender_id;
+    const partner=m.sender_id===currentUser.id?m.receiver:m.sender;
+    if(!map[pid]) map[pid]={partner,pid,lastMsg:m,unread:0};
+    if(!m.is_read&&m.receiver_id===currentUser.id) map[pid].unread++;
+  });
+  list.innerHTML=Object.values(map).map(c=>{
+    const time=new Date(c.lastMsg.created_at).toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'});
+    const pStr=encodeURIComponent(JSON.stringify(c.partner));
+    return `<div class="conv-item" onclick="openChat('${c.pid}','${pStr}')">
+      <div class="avatar">${ini(c.partner?.full_name)}</div>
+      <div class="conv-info">
+        <div class="conv-name">${c.partner?.full_name||'İsimsiz'}</div>
+        <div class="conv-preview">${c.lastMsg.content}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px">
+        <span style="font-size:.72rem;color:var(--text2)">${time}</span>
+        ${c.unread>0?`<div class="unread-count">${c.unread}</div>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function openChat(userId,partnerStr) {
+  activeChatUserId=userId;
+  try{activeChatPartner=JSON.parse(decodeURIComponent(partnerStr));}catch{activeChatPartner={};}
+  document.getElementById('chat-avatar').textContent=ini(activeChatPartner?.full_name);
+  document.getElementById('chat-name').textContent=activeChatPartner?.full_name||'İsimsiz';
+  document.getElementById('chat-type').textContent=activeChatPartner?.user_type==='musician'?'🎸 Müzisyen':'🎪 Organizatör';
+  openOverlay('overlay-chat');
+  await loadMessages(); await markRead();
+  if(chatPollInterval) clearInterval(chatPollInterval);
+  chatPollInterval=setInterval(async()=>{await loadMessages();await markRead();},3000);
+}
+
+async function loadMessages() {
+  if(!activeChatUserId) return;
+  const {data,error}=await sb.from('messages').select('*')
+    .or(`and(sender_id.eq.${currentUser.id},receiver_id.eq.${activeChatUserId}),and(sender_id.eq.${activeChatUserId},receiver_id.eq.${currentUser.id})`)
+    .order('created_at',{ascending:true});
+  if(error){console.error(error);return;}
+  const c=document.getElementById('chat-messages');
+  c.innerHTML=(data||[]).map(m=>{
+    const isOut=m.sender_id===currentUser.id;
+    const time=new Date(m.created_at).toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'});
+    return `<div class="msg ${isOut?'msg-out':'msg-in'}">${m.content}<div class="msg-time">${time}</div></div>`;
+  }).join('');
+  c.scrollTop=c.scrollHeight;
+}
+
+async function markRead() {
+  if(!activeChatUserId||!currentUser) return;
+  await sb.from('messages').update({is_read:true}).eq('sender_id',activeChatUserId).eq('receiver_id',currentUser.id);
+  checkUnread();
+}
+
+async function sendMessage() {
+  const input=document.getElementById('chat-input');
+  const content=input.value.trim(); if(!content) return;
+  input.value='';
+  const {error}=await sb.from('messages').insert({sender_id:currentUser.id,receiver_id:activeChatUserId,content,is_read:false});
+  if(error){toast('Gönderilemedi','error');return;}
+  await loadMessages();
+}
+
+function closeChat() {
+  closeOverlay('overlay-chat');
+  if(chatPollInterval){clearInterval(chatPollInterval);chatPollInterval=null;}
+  activeChatUserId=null;
+  if(unreadInterval) clearInterval(unreadInterval);
+  unreadInterval=setInterval(checkUnread,12000);
+  loadConversations();
+}
+
+async function startChat(userId) {
+  closeOverlay('overlay-profile');
+  const {data:p}=await sb.from('profiles').select('full_name,user_type').eq('id',userId).single();
+  showTab('messages');
+  setTimeout(()=>openChat(userId,encodeURIComponent(JSON.stringify(p))),150);
+}
+
+async function checkUnread() {
+  if(!currentUser) return;
+  const {count}=await sb.from('messages').select('id',{count:'exact',head:true}).eq('receiver_id',currentUser.id).eq('is_read',false);
+  const badge=document.getElementById('msg-badge');
+  if(badge) badge.style.display=(count>0)?'block':'none';
+}
+
+// ADMIN
+function switchAdminTab(tab) {
+  currentAdminTab=tab;
+  document.querySelectorAll('.admin-tab').forEach((b,i)=>b.classList.toggle('active',['stats','users','listings','messages'][i]===tab));
+  loadAdminContent(tab);
+}
+async function loadAdminContent(tab) {
+  const c=document.getElementById('admin-content');
+  c.innerHTML='<div style="text-align:center;padding:40px;color:var(--text2)">Yükleniyor...</div>';
+  if(tab==='stats') {
+    const [u,l,m]=await Promise.all([
+      sb.from('profiles').select('id',{count:'exact',head:true}),
+      sb.from('listings').select('id',{count:'exact',head:true}).eq('status','active'),
+      sb.from('messages').select('id',{count:'exact',head:true}),
+    ]);
+    c.innerHTML=`<div class="admin-grid">
+      <div class="admin-stat"><div class="admin-stat-num">${u.count||0}</div><div class="admin-stat-label">Kullanıcı</div></div>
+      <div class="admin-stat"><div class="admin-stat-num">${l.count||0}</div><div class="admin-stat-label">Aktif İlan</div></div>
+      <div class="admin-stat"><div class="admin-stat-num">${m.count||0}</div><div class="admin-stat-label">Mesaj</div></div>
+      <div class="admin-stat"><div class="admin-stat-num">✓</div><div class="admin-stat-label">Sistem Aktif</div></div>
+    </div>`;
+  }
+  if(tab==='users') {
+    const {data}=await sb.from('profiles').select('*').order('created_at',{ascending:false});
+    c.innerHTML=`<div style="margin-bottom:12px;font-size:.83rem;color:var(--text2)">${(data||[]).length} kullanıcı</div>`
+      +(data||[]).map(p=>`<div class="card" style="display:flex;gap:12px;align-items:center;justify-content:space-between">
+        <div style="display:flex;gap:12px;align-items:center">
+          <div class="avatar">${ini(p.full_name)}</div>
+          <div><div style="font-weight:600">${p.full_name||'İsimsiz'}</div><div style="font-size:.75rem;color:var(--text2)">${p.user_type==='musician'?'🎸 Müzisyen':'🎪 Organizatör'}${p.city?' · '+p.city:''}</div></div>
+        </div>
+        <button onclick="adminDeleteUser('${p.id}')" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:.8rem">Sil</button>
+      </div>`).join('');
+  }
+  if(tab==='listings') {
+    const {data}=await sb.from('listings').select('*,profiles(full_name)').order('created_at',{ascending:false});
+    c.innerHTML=`<div style="margin-bottom:12px;font-size:.83rem;color:var(--text2)">${(data||[]).length} ilan</div>`
+      +(data||[]).map(l=>`<div class="card"><div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div><span class="badge ${l.status==='active'?'badge-available':''}">${l.status}</span><div style="font-weight:600;margin-top:4px">${l.title}</div><div style="font-size:.75rem;color:var(--text2)">${l.profiles?.full_name||'?'} · ${l.listing_type}</div></div>
+        <button onclick="adminDeleteListing('${l.id}')" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:.8rem">Sil</button>
+      </div></div>`).join('');
+  }
+  if(tab==='messages') {
+    const {data}=await sb.from('messages').select('*,sender:profiles!messages_sender_id_fkey(full_name),receiver:profiles!messages_receiver_id_fkey(full_name)').order('created_at',{ascending:false}).limit(50);
+    c.innerHTML=`<div style="margin-bottom:12px;font-size:.83rem;color:var(--text2)">Son 50 mesaj</div>`
+      +(data||[]).map(m=>`<div class="card" style="padding:12px 14px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+          <div style="font-size:.78rem;color:var(--accent)">${m.sender?.full_name||'?'} → ${m.receiver?.full_name||'?'}</div>
+          <div style="font-size:.72rem;color:var(--text2)">${new Date(m.created_at).toLocaleString('tr-TR')}</div>
+        </div>
+        <div style="font-size:.86rem">${m.content}</div>
+      </div>`).join('');
+  }
+}
+async function adminDeleteUser(id){if(!confirm('Sil?'))return;await sb.from('profiles').delete().eq('id',id);toast('Silindi','success');loadAdminContent('users');}
+async function adminDeleteListing(id){if(!confirm('Sil?'))return;await sb.from('listings').delete().eq('id',id);toast('Silindi','success');loadAdminContent('listings');}
+
+// MODAL
+function openModal(id){document.getElementById(id).classList.add('open');document.body.style.overflow='hidden';}
+function closeModal(id){document.getElementById(id).classList.remove('open');document.body.style.overflow='';}
+
+// TOAST
+function toast(msg,type=''){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className='show '+type;
+  setTimeout(()=>t.className='',3000);
+}
+
+// TEMA
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  localStorage.setItem('sahne-theme', theme);
+  const icon = document.getElementById('theme-icon');
+  if (icon) icon.textContent = theme === 'light' ? '☀️' : '🌙';
+}
+function toggleTheme() {
+  const cur = document.documentElement.getAttribute('data-theme') || 'dark';
+  applyTheme(cur === 'dark' ? 'light' : 'dark');
+  toast(cur === 'dark' ? '☀️ Açık tema' : '🌙 Koyu tema', 'success');
+}
+function initTheme() {
+  const saved = localStorage.getItem('sahne-theme');
+  if (saved) { applyTheme(saved); return; }
+  // Sistem tercihine bak
+  const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  applyTheme(prefersDark ? 'dark' : 'light');
+}
+
+initTheme();
+init();
+</script>
+</body>
+</html>
